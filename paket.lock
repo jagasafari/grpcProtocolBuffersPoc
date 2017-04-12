@@ -1,0 +1,7 @@
+REDIRECTS: OFF
+FRAMEWORK: NET461
+NUGET
+  remote: https://www.nuget.org/api/v2
+    FSharp.Core (4.1.2)
+    Google.Protobuf (3.2)
+    Google.Protobuf.Tools (3.2)

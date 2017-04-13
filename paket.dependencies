@@ -2,6 +2,9 @@ framework: net461
 redirects: off
 source https://nuget.org/api/v2
 
-nuget FSharp.Core
 nuget Google.Protobuf
 nuget Google.Protobuf.Tools
+nuget NUnit
+nuget FSharp.Core = 4.0.0.1
+nuget Topshelf = 3.3.1
+nuget Unquote

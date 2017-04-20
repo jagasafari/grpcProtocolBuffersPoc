@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package Messages;
-
-message Rate {
-	int32 RateId = 1;
-	string PairsShortName = 2;
-}

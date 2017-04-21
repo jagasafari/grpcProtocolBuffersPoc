@@ -9,68 +9,29 @@ using static Messages.EmployeeService;
 
 namespace GrpcClient
 {
-    public class Program
+    public class GrpcClient
     {
-        const int Port = 555;
-        public static void Main(string[] args)
-        {
-            var channel = new Channel("localhost", Port, ChannelCredentials.Insecure);
+        private Channel _channel;
 
-            PostRate(channel).Wait();
-            SendMetadataAsync(channel).Wait();
-            GetByBadgeNumber(channel).Wait();
-            GetAll(channel).Wait();
-            try
-            {
-                AddPhoto(channel).Wait();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{ex}");
-            }
-            SaveAll(channel).Wait();
+        public GrpcClient()
+        {
+            const int Port = 555;
+            _channel = new Channel("localhost", Port, ChannelCredentials.Insecure);
         }
 
-        private static async Task PostRate(Channel channel)
+        public async Task GetByBadgeNumber()
         {
-            var res = await new DefaultCallInvoker(channel)
-                    .AsyncUnaryCall(__Method_PostRate, null,
-                        new CallOptions(),
-                        new RateMessageRequest() {
-                            Symbol = "abc",
-                            Ask =20m});
-            Console.WriteLine(res);
-        }
-
-        public static async Task SendMetadataAsync(Channel channel)
-        {
-            Metadata md = new Metadata();
-            md.Add("username", "mvansickle");
-            md.Add("password", "password1");
-            try
-            {
-                await new DefaultCallInvoker(channel)
-                    .AsyncUnaryCall(__Method_GetByBadgeNumber, null,
-                        new CallOptions().WithHeaders(md),
-                        new GetByBadgeNumberRequest());
-            }
-            catch (Exception e) {
-            }
-            Console.WriteLine("\n\n Metadata");
-        }
-        public static async Task GetByBadgeNumber(Channel channel)
-        {
-            var res = await new DefaultCallInvoker(channel)
+            var res = await new DefaultCallInvoker(_channel)
                     .AsyncUnaryCall(__Method_GetByBadgeNumber, null,
                         new CallOptions(),
                         new GetByBadgeNumberRequest() { BadgeNumber = 2080 });
             Console.WriteLine($"\n\ngetbybadge number {res.Employee}");
         }
 
-        public static async Task GetAll(Channel channel)
+        public async Task GetAll()
         {
             using (var call =
-                new DefaultCallInvoker(channel).AsyncServerStreamingCall(__Method_GetAll, null, new CallOptions(),
+                new DefaultCallInvoker(_channel).AsyncServerStreamingCall(__Method_GetAll, null, new CallOptions(),
                     new GetAllRequest()))
             {
                 var responseStream = call.ResponseStream;
@@ -81,13 +42,13 @@ namespace GrpcClient
             }
         }
 
-        public static async Task AddPhoto(Channel channel)
+        public async Task AddPhoto()
         {
             Metadata md = new Metadata();
             md.Add("badgenumber", "2080");
 
             FileStream fs = File.OpenRead("Penguins.jpg");
-            using (var call = new DefaultCallInvoker(channel)
+            using (var call = new DefaultCallInvoker(_channel)
                     .AsyncClientStreamingCall(__Method_AddPhoto, null, new CallOptions()))
             {
                 var stream = call.RequestStream;
@@ -117,7 +78,35 @@ namespace GrpcClient
             }
         }
 
-        private static async Task SaveAll(Channel channel)
+        public async Task PostRate()
+        {
+            var res = await new DefaultCallInvoker(_channel)
+                    .AsyncUnaryCall(__Method_PostRate, null,
+                        new CallOptions(),
+                        new RateMessageRequest() {
+                            Symbol = "abc",
+                            Ask =20m});
+            Console.WriteLine(res);
+        }
+
+        public async Task SendMetadataAsync()
+        {
+            Metadata md = new Metadata();
+            md.Add("username", "mvansickle");
+            md.Add("password", "password1");
+            try
+            {
+                await new DefaultCallInvoker(_channel)
+                    .AsyncUnaryCall(__Method_GetByBadgeNumber, null,
+                        new CallOptions().WithHeaders(md),
+                        new GetByBadgeNumberRequest());
+            }
+            catch (Exception e) {
+            }
+            Console.WriteLine("\n\n Metadata");
+        }
+
+        public async Task SaveAll()
         {
             var employees = new List<Employee>()
             {
@@ -136,7 +125,7 @@ namespace GrpcClient
                     VacationAccrued= 10,
                 }
             };
-            using (var call = new DefaultCallInvoker(channel)
+            using (var call = new DefaultCallInvoker(_channel)
                 .AsyncDuplexStreamingCall(__Method_SaveAll, null, new CallOptions()))
             {
                 var requestStream = call.RequestStream;
@@ -159,6 +148,26 @@ namespace GrpcClient
                 await call.RequestStream.CompleteAsync();
                 await responseTask;
             }
+        }
+    }
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            var client = new GrpcClient();
+            client.PostRate().Wait();
+            client.SendMetadataAsync().Wait();
+            client.GetByBadgeNumber().Wait();
+            client.GetAll().Wait();
+            try
+            {
+                client.AddPhoto().Wait();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{ex}");
+            }
+            client.SaveAll().Wait();
         }
     }
 }

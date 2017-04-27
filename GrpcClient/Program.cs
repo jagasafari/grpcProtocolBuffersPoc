@@ -12,7 +12,7 @@ namespace GrpcClient
     public class GrpcClient
     {
         private Channel _channel;
-
+        private IClientStreamWriter<AddPhotoRequest> _stream;
         public GrpcClient()
         {
             const int Port = 555;
@@ -42,42 +42,6 @@ namespace GrpcClient
             }
         }
 
-        public async Task AddPhoto()
-        {
-            Metadata md = new Metadata();
-            md.Add("badgenumber", "2080");
-
-            FileStream fs = File.OpenRead("Penguins.jpg");
-            using (var call = new DefaultCallInvoker(_channel)
-                    .AsyncClientStreamingCall(__Method_AddPhoto, null, new CallOptions()))
-            {
-                var stream = call.RequestStream;
-                while (true)
-                {
-                    byte[] buffer = new byte[64 * 1024];
-                    int numRead = await fs.ReadAsync(buffer, 0, buffer.Length);
-                    if (numRead == 0)
-                    {
-                        break;
-                    }
-                    if (numRead < buffer.Length)
-                    {
-                        Array.Resize(ref buffer, numRead);
-                    }
-
-                    await stream.WriteAsync(new AddPhotoRequest()
-                    {
-                        Data = buffer
-                    });
-                }
-                await stream.CompleteAsync();
-
-                var res = await call.ResponseAsync;
-
-                Console.WriteLine(res.IsOk);
-            }
-        }
-
         public async Task PostRate()
         {
             var res = await new DefaultCallInvoker(_channel)
@@ -87,6 +51,41 @@ namespace GrpcClient
                             Symbol = "abc",
                             Ask =20m});
             Console.WriteLine(res);
+        }
+
+        public async Task Stream()
+        {
+            FileStream fs = File.OpenRead("20141225_150135.jpg");
+            while (true)
+            {
+                byte[] buffer = new byte[64 * 1024];
+                int numRead = fs.Read(buffer, 0, buffer.Length);
+                if (numRead == 0) { break; }
+                if (numRead < buffer.Length) { Array.Resize(ref buffer, numRead); }
+                if (_stream == null)
+                {
+                    Console.WriteLine("null requestStream");
+                }
+                Console.WriteLine($"Streaming {DateTime.Now} next photo chunk");
+                await _stream.WriteAsync(new AddPhotoRequest()
+                {
+                    Data = buffer
+                });
+            }
+        }
+
+        public async Task AddPhoto()
+        {
+            using (var call = new DefaultCallInvoker(_channel)
+                    .AsyncClientStreamingCall(__Method_AddPhoto, null, new CallOptions()))
+            {
+                _stream = call.RequestStream;
+                var tcs = new TaskCompletionSource<bool>();
+                await tcs.Task;
+                await _stream.CompleteAsync();
+                var res = await call.ResponseAsync;
+                Console.WriteLine(res.IsOk);
+            }
         }
 
         public async Task SendMetadataAsync()
@@ -159,15 +158,18 @@ namespace GrpcClient
             client.SendMetadataAsync().Wait();
             client.GetByBadgeNumber().Wait();
             client.GetAll().Wait();
-            try
-            {
-                client.AddPhoto().Wait();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{ex}");
-            }
             client.SaveAll().Wait();
+            Task photoStreaming;
+            var task =
+                Task.Factory.StartNew(
+                    async () => await client.AddPhoto(),
+                    TaskCreationOptions.LongRunning);
+            photoStreaming = task.Unwrap();
+            while (true)
+            {
+                client.Stream();
+            }
+            Console.ReadKey();
         }
     }
 }

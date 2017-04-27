@@ -31,29 +31,6 @@ namespace GrpcServer
                 await responseStream.WriteAsync(new EmployeeResponse() { Employee = e });
         }
 
-        public async Task<AddPhotoResponse> AddPhoto(
-            IAsyncStreamReader<AddPhotoRequest> requestStream,
-            ServerCallContext context)
-        {
-            Metadata md = context.RequestHeaders;
-            foreach (var entry in md)
-                if (entry.Key.Equals("badgenumber", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    Console.WriteLine("Receiving photo for badgenumber: " + entry.Value);
-                    break;
-                }
-
-            var data = new List<byte>();
-            while (await requestStream.MoveNext())
-            {
-                Console.WriteLine("Received " +
-                    requestStream.Current.Data.Length + " bytes");
-                data.AddRange(requestStream.Current.Data);
-            }
-            Console.WriteLine("Received file with " + data.Count + " bytes");
-            return new AddPhotoResponse() { IsOk = true };
-        }
-
         public async Task SaveAll(
             IAsyncStreamReader<EmployeeRequest> requestStream,
             IServerStreamWriter<EmployeeResponse> responseStream,
@@ -74,6 +51,21 @@ namespace GrpcServer
             Console.WriteLine("Employees");
             foreach (var e in Employees.employees)
                 Console.WriteLine($"{ e.BadgeNumber}; {e.Id}");
+        }
+
+        public async Task<AddPhotoResponse> AddPhoto(
+          IAsyncStreamReader<AddPhotoRequest> requestStream,
+          ServerCallContext context)
+        {
+            var data = new List<byte>();
+            while (await requestStream.MoveNext())
+            {
+                Console.WriteLine("Received " +
+                    requestStream.Current.Data.Length + " bytes");
+                data.AddRange(requestStream.Current.Data);
+            }
+            Console.WriteLine("Received file with " + data.Count + " bytes");
+            return new AddPhotoResponse() { IsOk = true };
         }
 
         public async Task<RateResponse> PostRate(
